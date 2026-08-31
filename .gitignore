@@ -1,24 +1,26 @@
-# Build output
+# Build files
 build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
 
-# Manually compiled executables
-server
-device
+# Compiled files
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+*.dylib
 
 # Runtime logs
-logs/*.log
+logs/
+*.log
 
-# Keep logs directory
-!logs/.gitkeep
-
-# macOS
-.DS_Store
-
-# VS Code
+# IDE / OS
 .vscode/
-
-# CMake generated files
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
+.idea/
+.DS_Store
