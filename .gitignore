@@ -24,3 +24,7 @@ logs/
 .vscode/
 .idea/
 .DS_Store
+
+# Local compiled executables
+/server
+/device
