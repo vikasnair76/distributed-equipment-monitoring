@@ -1,0 +1,24 @@
+# Build output
+build/
+
+# Manually compiled executables
+server
+device
+
+# Runtime logs
+logs/*.log
+
+# Keep logs directory
+!logs/.gitkeep
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
