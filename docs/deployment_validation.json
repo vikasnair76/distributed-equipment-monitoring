@@ -1,0 +1,13 @@
+{
+  "all_three_nodes_healthy": true,
+  "replica_ingress_stop_then_device_advanced": true,
+  "stop_command_to_observed_progress_ms": 2339.5762499999364,
+  "prometheus_targets_up": 3,
+  "ports": [
+    18080,
+    18081,
+    18082,
+    19090
+  ],
+  "note": "Includes docker stop duration, device cadence, and 100ms polling; not a pure network failover latency benchmark."
+}

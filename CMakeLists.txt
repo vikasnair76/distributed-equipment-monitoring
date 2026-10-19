@@ -1,56 +1,28 @@
-cmake_minimum_required(VERSION 3.16)
-
-project(
-    EquipmentMonitoringSystem
-    VERSION 1.0
-    LANGUAGES CXX
-)
-
-set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.20)
+project(FaultTolerantEquipmentMonitoring VERSION 2.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-
-find_package(Threads REQUIRED)
-
-# Server
-add_executable(
-    server
-    src/server.cpp
-)
-
-target_link_libraries(
-    server
-    PRIVATE
-    Threads::Threads
-)
-
-# Device simulator
-add_executable(
-    device
-    src/device.cpp
-)
-
-target_link_libraries(
-    device
-    PRIVATE
-    Threads::Threads
-)
-
-# Compiler warnings
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(
-        server
-        PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-    )
-
-    target_compile_options(
-        device
-        PRIVATE
-        -Wall
-        -Wextra
-        -Wpedantic
-    )
+set(SANITIZER "" CACHE STRING "address, undefined, address,undefined, or thread")
+if(SANITIZER)
+ add_compile_options(-fsanitize=${SANITIZER} -fno-omit-frame-pointer)
+ add_link_options(-fsanitize=${SANITIZER})
 endif()
+add_compile_options(-Wall -Wextra -Wpedantic)
+find_package(Threads REQUIRED)
+add_library(core src/core/model.cpp src/core/storage.cpp src/core/network.cpp)
+target_include_directories(core PUBLIC include)
+target_link_libraries(core PUBLIC Threads::Threads)
+add_executable(server src/server.cpp)
+target_link_libraries(server PRIVATE core)
+add_executable(device src/device.cpp)
+target_link_libraries(device PRIVATE core)
+add_executable(load_generator benchmarks/load_generator.cpp)
+target_link_libraries(load_generator PRIVATE core)
+enable_testing()
+add_executable(unit_tests tests/unit.cpp)
+target_link_libraries(unit_tests PRIVATE core)
+add_test(NAME unit COMMAND unit_tests)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_test(NAME integration COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/integration.py $<TARGET_FILE:server> $<TARGET_FILE:device>)
+set_tests_properties(integration PROPERTIES TIMEOUT 90)

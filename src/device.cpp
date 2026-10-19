@@ -1,611 +1,146 @@
-#include <iostream>
-#include <string>
-#include <random>
-#include <thread>
-#include <chrono>
-#include <iomanip>
-#include <sstream>
-#include <atomic>
-#include <mutex>
-#include <cerrno>
-#include <cstring>
+#include "core.hpp"
 #include <csignal>
-
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-
-
-struct DeviceData
-{
-    std::string deviceId;
-    double temperature;
-    double pressure;
-    int rpm;
-    std::string status;
-};
-
-
-const int PORT = 8080;
-
-
-// ======================================================
-// Device state
-// ======================================================
-
-std::atomic<bool> running(true);
-
-// Normal = 2 seconds
-// Slow down = 5 seconds
-std::atomic<int> sendIntervalSeconds(2);
-
-std::mutex coutMutex;
-
-
-// ======================================================
-// Reliable send
-// ======================================================
-
-bool sendAll(
-    int socket,
-    const std::string& data
-)
-{
-    size_t totalSent = 0;
-
-
-    while (totalSent < data.size())
-    {
-        ssize_t bytesSent = send(
-            socket,
-            data.c_str() + totalSent,
-            data.size() - totalSent,
-            0
-        );
-
-
-        if (bytesSent <= 0)
-        {
-            return false;
-        }
-
-
-        totalSent +=
-            static_cast<size_t>(bytesSent);
-    }
-
-
-    return true;
+#include <fcntl.h>
+#include <fstream>
+#include <iostream>
+#include <random>
+#include <sys/file.h>
+namespace {
+volatile sig_atomic_t stop_device = 0;
+void stop(int) {
+    stop_device = 1;
 }
-
-
-// ======================================================
-// Receive control commands from server
-// ======================================================
-
-void receiveCommands(
-    int deviceSocket,
-    const std::string& deviceId
-)
-{
-    char buffer[512];
-
-    std::string pendingData;
-
-
-    while (running)
-    {
-        ssize_t bytesReceived = recv(
-            deviceSocket,
-            buffer,
-            sizeof(buffer),
-            0
-        );
-
-
-        if (bytesReceived < 0)
-        {
-            if (running)
-            {
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cerr
-                    << "[CONTROL ERROR] recv() failed: "
-                    << std::strerror(errno)
-                    << std::endl;
-            }
-
-            running = false;
-
-            break;
+void persist(const std::filesystem::path &path, uint64_t next, uint64_t command_seq,
+             const std::string &command) {
+    auto tmp = path;
+    tmp += ".tmp";
+    monitor::Fd fd(open(tmp.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0600));
+    if (fd.value < 0)
+        throw std::runtime_error("device_state_open");
+    std::string data =
+        std::to_string(next) + " " + std::to_string(command_seq) + " " + command + "\n";
+    size_t n = 0;
+    while (n < data.size()) {
+        auto r = write(fd.value, data.data() + n, data.size() - n);
+        if (r < 0 && errno == EINTR)
+            continue;
+        if (r <= 0)
+            throw std::runtime_error("device_state_write");
+        n += size_t(r);
+    }
+    if (fsync(fd.value) < 0 || rename(tmp.c_str(), path.c_str()) < 0)
+        throw std::runtime_error("device_state_sync");
+    auto dir = path.parent_path();
+    if (dir.empty())
+        dir = ".";
+    monitor::Fd parent(open(dir.c_str(), O_RDONLY));
+    if (parent.value < 0 || fsync(parent.value) < 0)
+        throw std::runtime_error("device_directory_sync");
+}
+} // namespace
+int main(int argc, char **argv) {
+    std::signal(SIGPIPE, SIG_IGN);
+    std::signal(SIGINT, stop);
+    std::signal(SIGTERM, stop);
+    try {
+        if (argc < 4)
+            throw std::runtime_error("usage: device ID endpoint[,endpoint] STATE_FILE "
+                                     "[interval_ms=2000] [event_count=0]");
+        std::string id = argv[1];
+        monitor::Event::parse("TELE " + id + " 1 70 30 2000 RUNNING");
+        auto endpoints = monitor::split(argv[2], ',');
+        if (endpoints.empty())
+            throw std::runtime_error("no_endpoints");
+        std::filesystem::path path = argv[3];
+        if (!path.parent_path().empty())
+            std::filesystem::create_directories(path.parent_path());
+        monitor::Fd lock(open((path.string() + ".lock").c_str(), O_CREAT | O_RDWR, 0600));
+        if (lock.value < 0 || flock(lock.value, LOCK_EX | LOCK_NB) < 0)
+            throw std::runtime_error("device_state_locked");
+        uint64_t next = 1, command_seq = 0;
+        std::string command = "HOLD";
+        if (std::filesystem::exists(path)) {
+            std::ifstream f(path);
+            if (!(f >> next >> command_seq >> command) || next <= command_seq ||
+                (command != "HOLD" && command != "SHUTDOWN" && command != "SLOW_DOWN" &&
+                 command != "RESUME_NORMAL"))
+                throw std::runtime_error("invalid_device_state");
         }
-
-
-        if (bytesReceived == 0)
-        {
-            if (running)
-            {
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cout
-                    << "[CONTROL] Monitoring server disconnected."
-                    << std::endl;
-            }
-
-
-            running = false;
-
-            break;
-        }
-
-
-        pendingData.append(
-            buffer,
-            bytesReceived
-        );
-
-
-        size_t newlinePosition;
-
-
-        while (
-            (newlinePosition =
-                pendingData.find('\n'))
-            != std::string::npos
-        )
-        {
-            std::string command =
-                pendingData.substr(
-                    0,
-                    newlinePosition
-                );
-
-
-            pendingData.erase(
-                0,
-                newlinePosition + 1
-            );
-
-
-            {
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cout
-                    << "\n[CONTROL] "
-                    << deviceId
-                    << " received command: "
-                    << command
-                    << std::endl;
-            }
-
-
-            // ==========================================
-            // Execute control command
-            // ==========================================
-
-            if (command == "SLOW_DOWN")
-            {
-                sendIntervalSeconds = 5;
-
-
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cout
-                    << "[DEVICE] Transmission slowed to every 5 seconds."
-                    << std::endl;
-            }
-
-
-            else if (command == "RESUME_NORMAL")
-            {
-                sendIntervalSeconds = 2;
-
-
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cout
-                    << "[DEVICE] Normal transmission restored to every 2 seconds."
-                    << std::endl;
-            }
-
-
-            else if (command == "SHUTDOWN")
-            {
-                {
-                    std::lock_guard<std::mutex> lock(coutMutex);
-
-                    std::cout
-                        << "[EMERGENCY] SHUTDOWN command received!"
-                        << std::endl;
-
-                    std::cout
-                        << "[DEVICE] "
-                        << deviceId
-                        << " shutting down..."
-                        << std::endl;
+        int interval = argc > 4 ? std::stoi(argv[4]) : 2000;
+        uint64_t count = argc > 5 ? std::stoull(argv[5]) : 0;
+        if (interval < 1)
+            throw std::runtime_error("invalid_interval");
+        std::mt19937 rng(std::random_device{}());
+        monitor::Fd socket;
+        size_t endpoint = 0;
+        int backoff = 50;
+        uint64_t sent = 0;
+        bool previously_connected = false;
+        while (!stop_device && command != "SHUTDOWN" && (!count || sent < count)) {
+            monitor::Event event{id,
+                                 "RUNNING",
+                                 next++,
+                                 70.0 + double(rng() % 270) / 10.0,
+                                 30.0 + double(rng() % 170) / 10.0,
+                                 2000 + int(rng() % 1800)};
+            persist(path, next, command_seq, command);
+            auto line = event.encode();
+            while (!stop_device) {
+                try {
+                    if (socket.value < 0) {
+                        socket = monitor::connect_to(endpoints[endpoint], 500);
+                        if (previously_connected) {
+                            if (!monitor::send_all(socket.value, "FAILOVER " + id + '\n') ||
+                                monitor::read_line(socket.value) != "OK")
+                                throw std::runtime_error("failover_report_failed");
+                        }
+                        previously_connected = true;
+                        monitor::log(id, "INFO", "connected", "endpoint=" + endpoints[endpoint]);
+                    }
+                    if (!monitor::send_all(socket.value, line + '\n'))
+                        throw std::runtime_error("send_failed");
+                    auto response = monitor::read_line(socket.value);
+                    std::istringstream in(response);
+                    std::string tag, device, action;
+                    uint64_t seq = 0;
+                    if (!(in >> tag >> device >> seq >> action) || tag != "ACK" || device != id ||
+                        seq < event.seq ||
+                        (action != "SLOW_DOWN" && action != "RESUME_NORMAL" &&
+                         action != "SHUTDOWN"))
+                        throw std::runtime_error("uncommitted_response");
+                    next = std::max(next, seq + 1);
+                    if (seq > command_seq) {
+                        persist(path, next, seq, action);
+                        command_seq = seq;
+                        command = action;
+                        monitor::log(id, "INFO", "command_applied",
+                                     "command=" + command + " sequence=" + std::to_string(seq));
+                    }
+                    if (!monitor::send_all(socket.value,
+                                           "CACK " + id + ' ' + std::to_string(seq) + '\n') ||
+                        monitor::read_line(socket.value) != "OK")
+                        throw std::runtime_error("command_ack_retry");
+                    ++sent;
+                    backoff = 50;
+                    break;
+                } catch (const std::exception &e) {
+                    socket = monitor::Fd();
+                    endpoint = (endpoint + 1) % endpoints.size();
+                    monitor::log(id, "WARNING", "failover_hold", std::string("error=") + e.what());
+                    int wait = backoff + int(rng() % unsigned(backoff / 2 + 1));
+                    for (int t = 0; t < wait && !stop_device; t += 20)
+                        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                    backoff = std::min(2000, backoff * 2);
                 }
-
-
-                running = false;
-
-                break;
             }
-
-
-            else
-            {
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cout
-                    << "[DEVICE] Unknown control command."
-                    << std::endl;
-            }
+            int wait = command == "SLOW_DOWN" ? interval * 5 / 2 : interval;
+            for (int elapsed = 0; elapsed < wait && !stop_device && command != "SHUTDOWN";
+                 elapsed += 20)
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
-    }
-}
-
-
-// ======================================================
-// Main
-// ======================================================
-
-int main(
-    int argc,
-    char* argv[]
-)
-{
-    std::signal(
-        SIGPIPE,
-        SIG_IGN
-    );
-
-
-    // --------------------------------------------------
-    // Device ID
-    // --------------------------------------------------
-
-    if (argc != 2)
-    {
-        std::cerr
-            << "Usage: ./device <DEVICE_ID>"
-            << std::endl;
-
-        std::cerr
-            << "Example: ./device MACHINE_01"
-            << std::endl;
-
+        return 0;
+    } catch (const std::exception &e) {
+        std::cerr << "fatal: " << e.what() << '\n';
         return 1;
     }
-
-
-    std::string deviceId =
-        argv[1];
-
-
-    // --------------------------------------------------
-    // Create TCP socket
-    // --------------------------------------------------
-
-    int deviceSocket =
-        socket(
-            AF_INET,
-            SOCK_STREAM,
-            0
-        );
-
-
-    if (deviceSocket < 0)
-    {
-        std::cerr
-            << "Error creating device socket."
-            << std::endl;
-
-        return 1;
-    }
-
-
-    // --------------------------------------------------
-    // Server address
-    // --------------------------------------------------
-
-    sockaddr_in serverAddress{};
-
-
-    serverAddress.sin_family =
-        AF_INET;
-
-
-    serverAddress.sin_port =
-        htons(PORT);
-
-
-    if (
-        inet_pton(
-            AF_INET,
-            "127.0.0.1",
-            &serverAddress.sin_addr
-        ) <= 0
-    )
-    {
-        std::cerr
-            << "Invalid server address."
-            << std::endl;
-
-
-        close(deviceSocket);
-
-        return 1;
-    }
-
-
-    // --------------------------------------------------
-    // Connect
-    // --------------------------------------------------
-
-    std::cout
-        << "Connecting to monitoring server..."
-        << std::endl;
-
-
-    if (
-        connect(
-            deviceSocket,
-            reinterpret_cast<sockaddr*>(
-                &serverAddress
-            ),
-            sizeof(serverAddress)
-        ) < 0
-    )
-    {
-        std::cerr
-            << "Error connecting to server: "
-            << std::strerror(errno)
-            << std::endl;
-
-
-        close(deviceSocket);
-
-        return 1;
-    }
-
-
-    std::cout
-        << "Connected to monitoring server!"
-        << std::endl;
-
-
-    // --------------------------------------------------
-    // Start control-command receiver thread
-    // --------------------------------------------------
-
-    std::thread controlThread(
-        receiveCommands,
-        deviceSocket,
-        deviceId
-    );
-
-
-    // --------------------------------------------------
-    // Sensor generators
-    // --------------------------------------------------
-
-    std::random_device rd;
-
-    std::mt19937 generator(
-        rd()
-    );
-
-
-    std::uniform_real_distribution<double>
-        temperatureGenerator(
-            40.0,
-            100.0
-        );
-
-
-    std::uniform_real_distribution<double>
-        pressureGenerator(
-            20.0,
-            50.0
-        );
-
-
-    std::uniform_int_distribution<int>
-        rpmGenerator(
-            1000,
-            4000
-        );
-
-
-    {
-        std::lock_guard<std::mutex> lock(coutMutex);
-
-        std::cout
-            << "\n========================================\n";
-
-        std::cout
-            << " Equipment Monitoring Device Simulator\n";
-
-        std::cout
-            << "========================================\n";
-
-        std::cout
-            << "Device started: "
-            << deviceId
-            << "\n\n";
-    }
-
-
-    // --------------------------------------------------
-    // Generate + transmit readings
-    // --------------------------------------------------
-
-    while (running)
-    {
-        DeviceData data;
-
-
-        data.deviceId =
-            deviceId;
-
-
-        data.temperature =
-            temperatureGenerator(
-                generator
-            );
-
-
-        data.pressure =
-            pressureGenerator(
-                generator
-            );
-
-
-        data.rpm =
-            rpmGenerator(
-                generator
-            );
-
-
-        // Keep local warning logic consistent
-        // with central monitoring rules.
-        if (
-            data.temperature > 90.0
-            ||
-            data.pressure > 45.0
-            ||
-            data.rpm > 3500
-        )
-        {
-            data.status =
-                "WARNING";
-        }
-        else
-        {
-            data.status =
-                "RUNNING";
-        }
-
-
-        // ------------------------------------------------
-        // Display local sensor reading
-        // ------------------------------------------------
-
-        {
-            std::lock_guard<std::mutex> lock(coutMutex);
-
-
-            std::cout
-                << std::fixed
-                << std::setprecision(2);
-
-
-            std::cout
-                << "["
-                << data.deviceId
-                << "] "
-                << "Temperature: "
-                << data.temperature
-                << " C | Pressure: "
-                << data.pressure
-                << " PSI | RPM: "
-                << data.rpm
-                << " | Status: "
-                << data.status
-                << std::endl;
-        }
-
-
-        // ------------------------------------------------
-        // Serialize
-        // ------------------------------------------------
-
-        std::ostringstream messageStream;
-
-
-        messageStream
-            << std::fixed
-            << std::setprecision(2)
-            << data.deviceId
-            << ","
-            << data.temperature
-            << ","
-            << data.pressure
-            << ","
-            << data.rpm
-            << ","
-            << data.status
-            << "\n";
-
-
-        std::string message =
-            messageStream.str();
-
-
-        // ------------------------------------------------
-        // Send sensor data to server
-        // ------------------------------------------------
-
-        if (!sendAll(
-                deviceSocket,
-                message
-            ))
-        {
-            {
-                std::lock_guard<std::mutex> lock(coutMutex);
-
-                std::cerr
-                    << "[ERROR] Failed to send sensor data."
-                    << std::endl;
-            }
-
-
-            running = false;
-
-            break;
-        }
-
-
-        // ------------------------------------------------
-        // Dynamic transmission speed
-        // ------------------------------------------------
-
-        int waitTime =
-            sendIntervalSeconds.load();
-
-
-        std::this_thread::sleep_for(
-            std::chrono::seconds(
-                waitTime
-            )
-        );
-    }
-
-
-    // --------------------------------------------------
-    // Shutdown
-    // --------------------------------------------------
-
-    shutdown(
-        deviceSocket,
-        SHUT_RDWR
-    );
-
-
-    if (controlThread.joinable())
-    {
-        controlThread.join();
-    }
-
-
-    close(deviceSocket);
-
-
-    std::cout
-        << "Device stopped: "
-        << deviceId
-        << std::endl;
-
-
-    return 0;
 }

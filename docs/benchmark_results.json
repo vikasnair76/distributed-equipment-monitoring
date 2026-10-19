@@ -1,0 +1,496 @@
+{
+  "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "logical_cpus": 8,
+  "compiler": "Apple clang version 21.0.0 (clang-2100.1.1.101)",
+  "build": "Release",
+  "network": "loopback",
+  "method": "one server; stop-and-wait client threads; latency of successful ACK attempts only; getrusage CPU/peak RSS and HTTP queue samples every ~200ms; sync=always; no host failure simulated",
+  "results": [
+    {
+      "clients": 100,
+      "elapsed_seconds": 5.00471,
+      "attempts": 4900,
+      "acknowledged": 4900,
+      "rejected_or_failed_attempts": 0,
+      "events_per_second": 979.078,
+      "p50_ms": 1.68992,
+      "p95_ms": 8.33171,
+      "p99_ms": 14.842,
+      "reconnect_samples": 0,
+      "reconnect_p95_ms": 0,
+      "hz_per_client": 10,
+      "padding": 0,
+      "burst": 1,
+      "sync": "always",
+      "workers": 4,
+      "queue_capacity": 256,
+      "samples": [
+        {
+          "server_cpu_percent": null,
+          "server_max_rss_bytes": 1556480.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 5.358912721804396,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 14.0
+        },
+        {
+          "server_cpu_percent": 4.552011620040592,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 14.201029710452977,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 17.0
+        },
+        {
+          "server_cpu_percent": 14.441376906637805,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 7.588868439056824,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 5.572599085365851,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.409131814521862,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.150755673473256,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 3.866057838660577,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.485090978374777,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 5.074165337971677,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 6.331667856293128,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 6.345538740631114,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 18.655677135142845,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 14.15725002373944,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 19.142980810849792,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 6.315889088672272,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.931091641013514,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.428290389136796,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.636694785276083,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 5.170058346378242,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 5.01586700137356,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 4.855677933915679,
+          "server_max_rss_bytes": 1966080.0,
+          "queue_depth": 0.0
+        }
+      ],
+      "final_metrics": {
+        "monitor_process_cpu_seconds_total": 0.384017,
+        "monitor_process_max_rss_bytes": 1966080.0,
+        "monitor_active_connections": 1.0,
+        "monitor_total_events_received": 4900.0,
+        "monitor_total_events_processed": 4900.0,
+        "monitor_invalid_events_total": 0.0,
+        "monitor_duplicate_events_total": 0.0,
+        "monitor_queue_depth": 0.0,
+        "monitor_connected_nodes": 0.0,
+        "monitor_failover_events_total": 0.0,
+        "monitor_forwarded_requests_total": 0.0,
+        "monitor_wal_write_errors_total": 0.0,
+        "monitor_rejected_events_total": 0.0,
+        "monitor_command_acks_total": 0.0,
+        "monitor_membership_timeouts_total": 0.0,
+        "monitor_process_uptime_seconds": 5.0685,
+        "monitor_processing_seconds_count": 4925.0
+      }
+    },
+    {
+      "clients": 500,
+      "elapsed_seconds": 5.00599,
+      "attempts": 24500,
+      "acknowledged": 24500,
+      "rejected_or_failed_attempts": 0,
+      "events_per_second": 4894.13,
+      "p50_ms": 1.44512,
+      "p95_ms": 13.6842,
+      "p99_ms": 68.9834,
+      "reconnect_samples": 0,
+      "reconnect_p95_ms": 0,
+      "hz_per_client": 10,
+      "padding": 0,
+      "burst": 1,
+      "sync": "always",
+      "workers": 4,
+      "queue_capacity": 256,
+      "samples": [
+        {
+          "server_cpu_percent": null,
+          "server_max_rss_bytes": 1540096.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 28.178193105124212,
+          "server_max_rss_bytes": 2326528.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 41.46832715342354,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 10.0
+        },
+        {
+          "server_cpu_percent": 46.5587044534413,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 36.68116702549741,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 27.814062608730236,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 30.594289672917988,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 28.98284492394422,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 30.47309172089488,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 31.19714895267649,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 31.871143287498224,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 27.082565246919565,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 27.64861165428232,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 29.616650442683046,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 48.0
+        },
+        {
+          "server_cpu_percent": 34.47847643760707,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 2.0
+        },
+        {
+          "server_cpu_percent": 37.583886164791856,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 46.0
+        },
+        {
+          "server_cpu_percent": 50.0332383665717,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 34.0
+        },
+        {
+          "server_cpu_percent": 39.62180528881671,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 24.0
+        },
+        {
+          "server_cpu_percent": 34.391842680262236,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 1.0
+        },
+        {
+          "server_cpu_percent": 29.41381023348232,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 30.607914734037276,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 30.019607843137276,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 32.40612648221347,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 31.68601814811194,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 37.83914963840216,
+          "server_max_rss_bytes": 2375680.0,
+          "queue_depth": 0.0
+        }
+      ],
+      "final_metrics": {
+        "monitor_process_cpu_seconds_total": 1.70687,
+        "monitor_process_max_rss_bytes": 2375680.0,
+        "monitor_active_connections": 1.0,
+        "monitor_total_events_received": 24500.0,
+        "monitor_total_events_processed": 24500.0,
+        "monitor_invalid_events_total": 0.0,
+        "monitor_duplicate_events_total": 0.0,
+        "monitor_queue_depth": 0.0,
+        "monitor_connected_nodes": 0.0,
+        "monitor_failover_events_total": 0.0,
+        "monitor_forwarded_requests_total": 0.0,
+        "monitor_wal_write_errors_total": 0.0,
+        "monitor_rejected_events_total": 0.0,
+        "monitor_command_acks_total": 0.0,
+        "monitor_membership_timeouts_total": 0.0,
+        "monitor_process_uptime_seconds": 5.21203,
+        "monitor_processing_seconds_count": 24526.0
+      }
+    },
+    {
+      "clients": 1000,
+      "elapsed_seconds": 5.00916,
+      "attempts": 48997,
+      "acknowledged": 48997,
+      "rejected_or_failed_attempts": 0,
+      "events_per_second": 9781.48,
+      "p50_ms": 8.28721,
+      "p95_ms": 21.4022,
+      "p99_ms": 42.5971,
+      "reconnect_samples": 0,
+      "reconnect_p95_ms": 0,
+      "hz_per_client": 10,
+      "padding": 0,
+      "burst": 1,
+      "sync": "always",
+      "workers": 4,
+      "queue_capacity": 256,
+      "samples": [
+        {
+          "server_cpu_percent": null,
+          "server_max_rss_bytes": 1572864.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 63.629320524720846,
+          "server_max_rss_bytes": 2605056.0,
+          "queue_depth": 253.0
+        },
+        {
+          "server_cpu_percent": 60.49390333619696,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 55.351652058290085,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 52.81576412368018,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 54.609624152512374,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 52.559444550123644,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 57.4502565086062,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 55.15820839048389,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 62.126439527882575,
+          "server_max_rss_bytes": 2637824.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 63.18360310315105,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 62.80458671763018,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 62.72502472799211,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 69.16860240030967,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 68.8262776506485,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 68.41731724627387,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 59.60641399416913,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 59.591217337696186,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 61.11719084550607,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 59.22677982083915,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 63.91285896166357,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 58.56132075471715,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 61.84688995215292,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        },
+        {
+          "server_cpu_percent": 62.201183431952835,
+          "server_max_rss_bytes": 2654208.0,
+          "queue_depth": 0.0
+        }
+      ],
+      "final_metrics": {
+        "monitor_process_cpu_seconds_total": 3.07152,
+        "monitor_process_max_rss_bytes": 2654208.0,
+        "monitor_active_connections": 1.0,
+        "monitor_total_events_received": 48997.0,
+        "monitor_total_events_processed": 48997.0,
+        "monitor_invalid_events_total": 0.0,
+        "monitor_duplicate_events_total": 0.0,
+        "monitor_queue_depth": 0.0,
+        "monitor_connected_nodes": 0.0,
+        "monitor_failover_events_total": 0.0,
+        "monitor_forwarded_requests_total": 0.0,
+        "monitor_wal_write_errors_total": 0.0,
+        "monitor_rejected_events_total": 0.0,
+        "monitor_command_acks_total": 0.0,
+        "monitor_membership_timeouts_total": 0.0,
+        "monitor_process_uptime_seconds": 5.10341,
+        "monitor_processing_seconds_count": 49022.0
+      }
+    }
+  ]
+}

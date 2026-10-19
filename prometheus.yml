@@ -1,0 +1,6 @@
+global:
+  scrape_interval: 5s
+scrape_configs:
+  - job_name: equipment
+    static_configs:
+      - targets: ['monitor-a:8080', 'monitor-b:8080', 'monitor-c:8080']

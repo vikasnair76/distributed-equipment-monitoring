@@ -1,274 +1,137 @@
-# Multithreaded Equipment Monitoring System
+# Fault-Tolerant Distributed Equipment Monitoring Platform
 
-A multithreaded C++ equipment monitoring system that simulates communication between industrial devices and a centralized control server using TCP/IP sockets.
+A working C++20 equipment monitor with nonblocking TCP, Linux epoll, bounded workers, persistent device state, crash recovery, replica catch-up, and observable failure handling. Evolved from the original C++17 project after an [actual source review](docs/existing_system_review.md); original code remains in `legacy/`.
 
-The application demonstrates concurrent network programming, thread synchronization, producer-consumer architecture, centralized equipment monitoring, structured logging, diagnostics, and bidirectional device control.
+**The consistency model is deliberately narrow:** A is the fixed writer; B/C forward writes and replicate snapshots asynchronously. Devices recover from an ingress outage. A leader outage pauses writes until A returns. There is no automatic leader election, quorum durability, or claim of production-grade availability. This is a simulated controller, not safety-certified equipment software.
 
-## Features
-
-- Multithreaded TCP server supporting multiple industrial devices concurrently
-- TCP/IP socket communication between independent processes
-- Simulated temperature, pressure, RPM, and device status telemetry
-- Producer-consumer architecture using a thread-safe queue
-- Synchronization using `std::mutex` and `std::condition_variable`
-- Centralized sensor monitoring and alert detection
-- Thread-safe structured logging
-- Network and application error diagnostics
-- Bidirectional TCP communication
-- Server-to-device control commands
-- Automatic `SLOW_DOWN`, `RESUME_NORMAL`, and `SHUTDOWN` actions
-
-## Architecture
+## Before and after
 
 ```text
-                 CENTRAL MONITORING SERVER
-                          |
-        +-----------------+-----------------+
-        |                 |                 |
-        v                 v                 v
- Network Thread     Network Thread     Network Thread
-        ^                 ^                 ^
-        |                 |                 |
-   MACHINE_01        MACHINE_02        MACHINE_03
-        |                 |                 |
-        +-------- Sensor Telemetry ----------+
-                          |
-                          v
-                 Thread-Safe Queue
-                          |
-                          v
-                     Worker Thread
-                          |
-             +------------+------------+
-             |            |            |
-             v            v            v
-          Parsing      Monitoring     Logging
-                          |
-                          v
-                    Control Logic
-                          |
-             +------------+-------------+
-             |            |             |
-             v            v             v
-       RESUME_NORMAL  SLOW_DOWN     SHUTDOWN
-             |            |             |
-             +------ TCP Commands -------+
-                          |
-                          v
-                       Devices
+Before: device → blocking thread per client → unbounded queue → one consumer → text logs
+
+After:                         fixed authoritative writer
+  devices ───→ A ingress ─────→ bounded queue/workers ───→ WAL + checkpoint
+      ├──────→ B ingress ──forward──┘                         │
+      └──────→ C ingress ──forward──┘                         │
+                  B local checkpoint ←── snapshot pull ──────┤
+                  C local checkpoint ←── snapshot pull ──────┘
+                      A / B / C ── /metrics ──→ Prometheus
 ```
 
-## Technologies
+See the [node diagram and concurrency design](docs/architecture.md), [consistency model](docs/consistency_model.md), [failure scenarios](docs/failure_scenarios.md), and [decisions/status](docs/design_decisions.md).
 
-- C++17
-- POSIX TCP/IP sockets
-- `std::thread`
-- `std::mutex`
-- `std::condition_variable`
-- `std::queue`
-- CMake
-- Multithreading
-- Producer-consumer pattern
+## Build and test
 
-## Sensor Data
-
-Each simulated device generates:
-
-- Temperature
-- Pressure
-- RPM
-- Equipment status
-
-Example message transmitted over TCP:
-
-```text
-MACHINE_01,72.45,31.82,2450,RUNNING
-```
-
-TCP messages are newline-delimited, and the server handles partial or combined TCP reads before processing complete equipment messages.
-
-## Monitoring Rules
-
-The centralized server evaluates incoming telemetry and produces alerts for abnormal conditions.
-
-Examples:
-
-```text
-[ALERT] MACHINE_01 -> HIGH TEMPERATURE: 95.21 C
-[ALERT] MACHINE_02 -> HIGH PRESSURE: 47.82 PSI
-[ALERT] MACHINE_03 -> HIGH RPM: 3820
-```
-
-## Device Control
-
-The server can send control commands back to individual devices.
-
-### SLOW_DOWN
-
-The device changes its telemetry interval from 2 seconds to 5 seconds.
-
-```text
-[CONTROL] MACHINE_01 received command: SLOW_DOWN
-[DEVICE] Transmission slowed to every 5 seconds.
-```
-
-### RESUME_NORMAL
-
-The normal 2-second telemetry interval is restored.
-
-```text
-[CONTROL] MACHINE_01 received command: RESUME_NORMAL
-[DEVICE] Normal transmission restored to every 2 seconds.
-```
-
-### SHUTDOWN
-
-Critical conditions can trigger an emergency shutdown command.
-
-```text
-[CONTROL] MACHINE_01 received command: SHUTDOWN
-[EMERGENCY] SHUTDOWN command received!
-```
-
-## Producer-Consumer Design
-
-Each connected device is handled by its own network thread.
-
-Network threads act as producers and place received equipment events into a shared thread-safe queue.
-
-A worker thread acts as the consumer and performs:
-
-1. Message parsing
-2. Sensor analysis
-3. Alert detection
-4. Logging
-5. Control-command decisions
-
-The queue is protected using `std::mutex`, while `std::condition_variable` allows the worker to sleep efficiently until new data becomes available.
-
-## Logging
-
-Runtime information is stored in:
-
-```text
-logs/equipment.log
-```
-
-Example:
-
-```text
-2026-08-31 14:02:34 [INFO] MACHINE_01 TEMP=42.08 PRESSURE=48.94 RPM=3503 STATUS=WARNING
-2026-08-31 14:02:34 [WARNING] MACHINE_01 HIGH_PRESSURE=48.94
-2026-08-31 14:02:34 [WARNING] MACHINE_01 HIGH_RPM=3503
-2026-08-31 14:02:36 [CONTROL] MACHINE_01 COMMAND=SLOW_DOWN
-```
-
-Log writes are protected by a mutex to prevent concurrent threads from corrupting log output.
-
-## Build
-
-### Requirements
-
-- C++17 compatible compiler
-- CMake 3.16+
-- macOS or Linux
-
-Clone the repository:
+Requires a C++20 compiler, CMake 3.20+, POSIX sockets, and Python 3 for test harnesses. Runtime C++ code has no external library dependencies. Linux uses epoll; macOS uses poll.
 
 ```bash
-git clone <repository-url>
-cd equipment-monitoring-system
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+ctest --test-dir build --output-on-failure
 ```
 
-Create the build directory:
+Sanitizers (separate builds; do not combine TSan with ASan):
 
 ```bash
-mkdir build
-cd build
+cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=address,undefined
+cmake --build build-asan -j4
+ctest --test-dir build-asan --output-on-failure
+cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=thread
+cmake --build build-tsan -j4
+ctest --test-dir build-tsan --output-on-failure
 ```
 
-Configure:
+Executed validation and exact limits are recorded in [validation.md](docs/validation.md). CI defines Linux/macOS sanitizer jobs; local execution does not imply those hosted jobs have run.
+
+## Run locally
+
+Run each server in a separate terminal from the repository root:
 
 ```bash
-cmake ..
+./build/server configs/local-a.conf
+./build/server configs/local-b.conf
+./build/server configs/local-c.conf
 ```
 
-Build:
+Then:
 
 ```bash
-cmake --build .
+./build/device MACHINE_01 127.0.0.1:8081,127.0.0.1:8082,127.0.0.1:8080 data/MACHINE_01.state
+curl -fsS http://127.0.0.1:8080/metrics
+./build/load_generator 127.0.0.1:8080 100 10 10
 ```
 
-Return to the project root:
+The simulator takes ID, comma-separated endpoints, state-file path, optional interval in milliseconds (default 2000), and optional event count (0 = continuous). Keep the state file with its device identity across restarts. One active simulator per identity/state file. `Ctrl-C` stops a node gracefully. Stop B to see reconnection; stop A to see explicit RETRY/hold until recovery. State directories are independent. The server listens on all interfaces at the configured port; local deployments must use a trusted network/firewall.
+
+## Docker Compose
 
 ```bash
-cd ..
+docker compose up -d --build
+docker compose ps
+docker compose logs -f device-simulator monitor-a monitor-b monitor-c
+curl -fsS http://127.0.0.1:8080/metrics
 ```
 
-## Run
+Services: `monitor-a`, `monitor-b`, `monitor-c`, `device-simulator`, `prometheus`. Each node/device has its own persistent volume. Prometheus is available at `http://127.0.0.1:9090`. Health checks test responsiveness; retry loops tolerate startup races. CPU/memory limits keep default services modest. `/health` is process health, not cluster write readiness.
 
-Start the monitoring server:
+If ports are occupied, set `MONITOR_A_PORT`, `MONITOR_B_PORT`, `MONITOR_C_PORT`, and `PROMETHEUS_PORT` before every Compose command. Internal service endpoints remain unchanged. For example:
 
 ```bash
-./build/server
+export MONITOR_A_PORT=18080 MONITOR_B_PORT=18081 MONITOR_C_PORT=18082 PROMETHEUS_PORT=19090
+docker compose up -d --build
 ```
 
-Open another terminal and start the first device:
+Failure/recovery demonstration:
 
 ```bash
-./build/device MACHINE_01
+docker compose stop monitor-b
+docker compose logs --tail=30 device-simulator monitor-c
+docker compose start monitor-b
+docker compose stop monitor-a
+# B/C stay responsive but cannot commit TELE; device holds and retries.
+docker compose start monitor-a
+curl -fsS http://127.0.0.1:${MONITOR_A_PORT:-8080}/metrics
+docker compose run --rm --no-deps device-simulator load_generator monitor-a:8080,monitor-b:8080,monitor-c:8080 500 30 10
 ```
 
-Start additional simulated devices:
+`docker compose down` stops the deployment and retains data volumes. `down -v` deletes them; use it only for disposable tests. The manual Compose smoke harness stops/restarts its own ingress replica and verifies device progress and all three Prometheus targets:
 
 ```bash
-./build/device MACHINE_02
+COMPOSE_PROJECT_NAME=equipment-validation python3 tests/compose_smoke.py
 ```
+
+Start that project first using `docker compose -p equipment-validation up -d --build`. Keep matching port environment variables in both commands.
+
+## Components and guarantees
+
+| Component | Responsibility |
+|---|---|
+| `src/server.cpp` | Reactor, generation-token sockets, bounded admission, completion buffers, request handling, metrics, peer probes and replication loop |
+| `src/core/model.cpp` | Strict event validation, preserved thresholds, bounded closeable worker pool, config, structured logs |
+| `src/core/storage.cpp` | Exclusive data-directory ownership, CRC/versioned WAL, replay, sequence dedup, checkpoint ordering, replica snapshot validation |
+| `src/core/network.cpp` | RAII sockets and bounded-deadline nonblocking outbound RPC |
+| `src/device.cpp` | Persisted sequence/command state, stop-and-wait retries, endpoint rotation, bounded exponential backoff with jitter, command ACK and shutdown latch |
+| `benchmarks/` | C++ clients, CPU/RSS/queue sampling, crash/restart measurement |
+| `tests/` | Unit invariants, real-process faults and partition proxy, manual Compose validation |
+
+Warning rules preserve temperature >90°C, pressure >45 PSI, or RPM >3500; critical temperature >99.5°C or pressure >49.8 PSI produces SHUTDOWN. WARNING/STOPPED equipment status also participates in control. Commands are `SLOW_DOWN`, `RESUME_NORMAL`, `SHUTDOWN`, identified by `(device, sequence)`. A device saves its command high-water mark before applying a simulated effect; a saved SHUTDOWN remains latched on restart.
+
+A full worker queue pauses reads rather than allocating more work. Per-connection frames are limited to 4 KiB; connection count, queue, device cardinality, snapshots, and retained responses are bounded. Only the reactor operates accepted sockets. Workers drain on shutdown; a client may need to retry a committed write whose response was lost.
+
+Default `sync=always` appends and fsyncs before ACK. Torn trailing WAL records are repaired; complete checksum corruption fails startup. Checkpoints bound historical WAL growth by compacting to latest state. Replicas never accept authoritative writes; snapshots reject regressions. See [the exact crash/host-loss caveats](docs/consistency_model.md) before interpreting durability.
+
+## Measurements
+
+A five-second macOS ARM64 loopback run with 1,000 clients at target 10 Hz achieved **9,781.48 ACK events/s**, **21.40ms p95**, and **zero failed attempts**. This tests macOS poll; the Linux epoll build passed separate real-process correctness tests. CPU, peak RSS, queue samples, 100/500-client results, and methodology are in [performance.md](docs/performance.md), with raw JSON evidence.
 
 ```bash
-./build/device MACHINE_03
+python3 benchmarks/run.py --seconds 5
+python3 benchmarks/recovery.py build
+./build/load_generator 127.0.0.1:8080 1000 60 10 512 10
 ```
 
-The monitoring server will process telemetry from all devices concurrently.
+Load-generator arguments: endpoints, clients, duration seconds, per-client Hz, padding bytes, burst size. The load tool reports ACK throughput, p50/p95/p99, failed/rejected attempts, and reconnect samples. Successful-attempt latency excludes failed attempts/backoff; it is not an outage-inclusive latency guarantee. Benchmark clients use one thread per connection, independently of the event-driven server.
 
-## Live Logs
+## Limitations and next work
 
-To monitor logs in real time:
-
-```bash
-tail -f logs/equipment.log
-```
-
-Press `Ctrl + C` to stop following the log.
-
-## Concepts Demonstrated
-
-This project demonstrates:
-
-- TCP client-server architecture
-- Network programming
-- Multithreaded server design
-- Concurrent client handling
-- Race-condition prevention
-- Mutex-based synchronization
-- Condition variables
-- Producer-consumer architecture
-- TCP message framing
-- Error handling
-- Structured logging
-- Bidirectional communication
-- Equipment monitoring and control
-
-## Project Structure
-
-```text
-equipment-monitoring-system/
-├── src/
-│   ├── server.cpp
-│   └── device.cpp
-├── logs/
-│   └── .gitkeep
-├── CMakeLists.txt
-├── .gitignore
-└── README.md
-```
+No automatic leader election, quorum commitment, replicated-write durability guarantee, TLS/auth, distributed device lease, full telemetry archive, or offline device spool. Replica reads can lag. Full snapshots and one storage mutex trade scale for clear ordering. Heartbeat suspicions can be false; they never trigger promotion. Host/disk-loss and filesystem error campaigns, long soak tests, repeated benchmark trials, incremental replication, group commit, and independent metrics serving remain future milestones. The six scoped implementation phases and three defensible resume bullets are in [design_decisions.md](docs/design_decisions.md).

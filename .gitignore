@@ -28,3 +28,8 @@ logs/
 # Local compiled executables
 /server
 /device
+build-*/
+data/
+work/
+*.state
+*.state.lock

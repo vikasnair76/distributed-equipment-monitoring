@@ -1,0 +1,20 @@
+{
+  "workload": {
+    "clients": 100,
+    "elapsed_seconds": 6.00496,
+    "attempts": 11322,
+    "acknowledged": 10724,
+    "rejected_or_failed_attempts": 598,
+    "events_per_second": 1785.86,
+    "p50_ms": 1.31604,
+    "p95_ms": 5.85246,
+    "p99_ms": 6.53721,
+    "reconnect_samples": 100,
+    "reconnect_p95_ms": 329.335
+  },
+  "kill_to_ready_ms": 322.46008299989626,
+  "restart_to_ready_ms": 20.527625000340777,
+  "intentional_downtime_seconds": 0.3,
+  "pre_crash_durable_probe_preserved": true,
+  "method": "SIGKILL with active traffic; same data directory; PING polled every 10ms; client reconnect samples measure first failed attempt until next successful ACK"
+}
